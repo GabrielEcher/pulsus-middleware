@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
     
     scheduler.add_job(
         update_devices_data,
-        trigger=IntervalTrigger(minutes=1),
+        trigger=IntervalTrigger(hours=2),
         id="atualizacao_ip_coletores",
         replace_existing=True
     )
