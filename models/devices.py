@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel
 
 
 class User(BaseModel):
@@ -25,7 +25,7 @@ class Devices(BaseModel):
     mac_address: str
     updated_at: str
     activated_at: str
-    last_contact_at: str
+    last_contact_at: str | None
     group: str
     group_pin: str
     group_name: str

@@ -1,3 +1,4 @@
+import asyncio
 import os
 from sqlalchemy import text
 from database.oracle_connection import Session
@@ -10,63 +11,60 @@ from time import sleep
 
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
+MAX_RETRIES = 5
+URL = "https://api.pulsus.mobi/v1/devices"
 
 # FUNÇÃO PARA CONSULTAR COLETORES NA API DO PULSUS
-
-
 async def request_devices_data() -> List[dict]:
-    try:
-        async with ClientSession() as session:
-            async with session.get("https://api.pulsus.mobi/v1/devices", headers={
-                "ApiToken": API_KEY
-            }) as response:
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            async with ClientSession() as session:
+                async with session.get(URL, headers={"ApiToken": API_KEY}) as response:
 
-                if response.status != 200:
-                    logger.error(
-                        f"Erro ao consultar a API do Pulsus. Status: {response.status}")
-                    return []
+                    if response.status == 200:
+                        try:
+                            data = await response.json()
+                        except Exception as e:
+                            logger.error(f"Erro ao decodificar JSON da resposta da API: {e}")
+                            return []
 
-                try:
-                    data = await response.json()
-                except Exception as e:
-                    logger.error(
-                        f"Erro ao decodificar JSON da resposta da API: {e}")
-                    return []
+                        coletores: List[Devices] = []
+                        for item in data:
+                            try:
+                                coletor = Devices(**item)
+                                coletores.append(coletor)
+                            except Exception as e:
+                                logger.error(f"Erro ao processar coletor: {e} | Dados: {item}")
 
-                coletores: List[Devices] = []
-                for item in data:
-                    try:
-                        coletor = Devices(**item)
-                        coletores.append(coletor)
-                    except Exception as e:
-                        logger.error(
-                            f"Erro ao processar coletor: {e} | Dados: {item}")
+                        resultado = []
+                        for coletor in coletores:
+                            try:
+                                resultado.append({
+                                    "id": coletor.id,
+                                    "ip_address": coletor.ip_address,
+                                    "user_first_name": coletor.user.first_name.split(' ')[0],
+                                    "state": (
+                                        ' '.join(coletor.user.first_name.split()[1:]) or
+                                        str(coletor.user.last_name or '')
+                                    ),
+                                })
+                            except Exception as e:
+                                logger.error(f"Erro ao montar dados do coletor: {e} | Coletor: {coletor}")
 
-                resultado = []
-                for coletor in coletores:
-                    try:
-                        resultado.append({
-                            "id": coletor.id,
-                            "ip_address": coletor.ip_address,
-                            "user_first_name": coletor.user.first_name.split(' ')[0],
-                            "state": (
-                                ' '.join(coletor.user.first_name.split()[1:]) or
-                                str(coletor.user.last_name or '')
-                            )
-                        })
-                    except Exception as e:
-                        logger.error(
-                            f"Erro ao montar dados do coletor: {e} | Coletor: {coletor}")
+                        logger.info("Consulta à API do Pulsus realizada com sucesso.")
+                        return resultado
 
-                logger.info("Consulta à API do Pulsus realizada com sucesso.")
-                return resultado
+                    else:
+                        logger.warning(f"Tentativa {attempt}: Status {response.status} ao consultar a API do Pulsus.")
+        except ClientError as e:
+            logger.warning(f"Tentativa {attempt}: Erro de conexão com a API do Pulsus: {e}")
+        except Exception as e:
+            logger.warning(f"Tentativa {attempt}: Erro inesperado: {e}")
 
-    except ClientError as e:
-        logger.error(f"Erro de conexão com a API do Pulsus: {e}")
-    except Exception as e:
-        logger.error(
-            f"Erro inesperado ao consultar dados da API do Pulsus: {e}")
+        # Espera exponencial (1s, 2s, 4s, 8s, 16s)
+        await asyncio.sleep(2 ** (attempt - 1))
 
+    logger.error("Falha ao consultar a API do Pulsus após múltiplas tentativas.")
     return []
 
 # FUNÇÃO PARA ATUALIZAR OS DADOS DOS COLETORES NO BANCO DE DADOS

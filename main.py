@@ -1,40 +1,25 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from services.tasks import request_devices_data, update_devices_data
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 from contextlib import asynccontextmanager
-from sqlalchemy import text
-from database.oracle_connection import Session
 from middleware.middleware import PulsusMiddleware
 from middleware.logger import logger
-scheduler = AsyncIOScheduler()
-orcl_session = Session()
-
+from services.scheduler import start_scheduler
+from routes.router import router as router_devices
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    
-    scheduler.add_job(
-        update_devices_data,
-        trigger=IntervalTrigger(hours=2),
-        id="atualizacao_ip_coletores",
-        replace_existing=True
-    )
-    scheduler.start()
-    logger.info("Scheduler iniciado com sucesso")
+    scheduler = await start_scheduler()
     yield
-    # Fim da aplicação
-    scheduler.shutdown()
+    await scheduler.shutdown()
     logger.info("Scheduler finalizado")
 
 app = FastAPI(
     title="API Integração Pulsus",
     version="1.0.0",
-    docs_url="/api/docs",
+    docs_url="/docs",
     openapi_url="/api/openapi.json",
-    lifespan=lifespan
+    lifespan=lifespan,
+    root_path="/api/pulsus"
 )
 
 app.add_middleware(
@@ -45,3 +30,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(PulsusMiddleware)
+
+app.include_router(router_devices)
