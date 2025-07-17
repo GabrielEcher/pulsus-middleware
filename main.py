@@ -10,7 +10,7 @@ from routes.router import router as router_devices
 async def lifespan(app: FastAPI):
     scheduler = await start_scheduler()
     yield
-    await scheduler.shutdown()
+    scheduler.shutdown()
     logger.info("Scheduler finalizado")
 
 app = FastAPI(
