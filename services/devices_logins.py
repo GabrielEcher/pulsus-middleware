@@ -83,8 +83,17 @@ def parse_result(rows):
 def get_devices_logins():
     try:
         with Session() as session:
+            # ALTERADO PARA CONSULTAR DA TABELA DE LOGS DE SESSÃO
             query = text("""
-                SELECT * FROM C_VW_LOG_SESSAO
+                SELECT 
+                USUARIO,
+                MODULO,
+                OPERACAO,
+                DATAHORA,
+                ID_PULSUS,
+                ID_COLETOR_PULSUS,
+                IP
+                FROM C_LOG_SESSAO_PULSUS
             """)
             return parse_result(session.execute(query))
     except Exception as e:
@@ -100,15 +109,17 @@ async def get_merged_devices_info() -> List[dict]:
 
     logins_by_id = defaultdict(list)
     for login in logins:
-        id_coletor = login.get("id_coletor")
+        # ID DO COLETOR É O ID DO INVENTÁRIO
+        id_coletor = login.get("id_coletor_pulsus")
         if id_coletor:
             logins_by_id[str(id_coletor)].append(login)
 
     merged_data = []
     for device in devices:
+        # USER_FIRST_NAME É O ID DO COLETOR
         id_coletor = device.get("user_first_name")
         logins_do_coletor = logins_by_id.get(id_coletor, [])
-
+    
         ultimo_login = max(logins_do_coletor, key=lambda x: x["datahora"]) if logins_do_coletor else None
 
         last_contact_at_raw = device.get("last_contact_at")
@@ -145,7 +156,6 @@ async def get_merged_devices_info() -> List[dict]:
             "login_time": ultimo_login.get("datahora") if ultimo_login else None,
             "source": ultimo_login.get("modulo") if ultimo_login else None,
             "operation": ultimo_login.get("operacao") if ultimo_login else None,
-            "description": ultimo_login.get("descricao") if ultimo_login else None,
         }
 
         merged_data.append(merged)
