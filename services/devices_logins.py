@@ -163,4 +163,30 @@ async def get_merged_devices_info() -> List[dict]:
     return merged_data
 
 
+def get_all_logs_data(startDate: datetime, endDate: datetime, local: str | None) -> List[dict]:
+    try:
+        with Session() as session:
+            # Base da query
+            sql = """
+                SELECT *
+                FROM C_LOG_SESSAO_PULSUS
+                WHERE DATAHORA BETWEEN :startDate AND :endDate
+            """
 
+            # Adiciona filtro opcional
+            if local:
+                sql += " AND ESTADO_PULSUS = :local"
+
+            # Monta query final
+            query = text(sql)
+
+            # Monta os parâmetros
+            params = {"startDate": startDate, "endDate": endDate}
+            if local:
+                params["local"] = local
+
+            result = session.execute(query, params=params)
+            return parse_result(result)
+    except Exception as e:
+        logger.error(f"Erro ao consultar logins dos coletores: {e}")
+        return []
