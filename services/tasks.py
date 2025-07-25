@@ -99,6 +99,7 @@ async def update_devices_data() -> None:
                         if last_contact_str:
                             last_contact = parser.isoparse(last_contact_str)
                             if last_contact < datetime.now() - timedelta(days=3):
+                                logger.info(f"Coletor há mais de 3 dias sem sincronização encontrado IP: {ip_address} | Última sincronização {last_contact_str}")
                                 ip_address = None
                         else:
                             ip_address = None
