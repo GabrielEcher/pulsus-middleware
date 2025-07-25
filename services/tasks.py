@@ -1,4 +1,6 @@
 import asyncio
+from datetime import datetime, timedelta
+from dateutil import parser
 import os
 from sqlalchemy import text
 from database.oracle_connection import Session
@@ -90,6 +92,17 @@ async def update_devices_data() -> None:
 
                 for device in devices_data:
                     try:
+                        # Verifica se o contato foi há mais de 3 dias
+                        last_contact_str = device.get("last_contact_at")
+                        ip_address = device.get("ip_address")
+
+                        if last_contact_str:
+                            last_contact = parser.isoparse(last_contact_str)
+                            if last_contact < datetime.now() - timedelta(days=3):
+                                ip_address = None
+                        else:
+                            ip_address = None
+
                         session.execute(text("""
                         INSERT INTO COLETORES_PULSUS (
                             ID_PULSUS,
@@ -105,7 +118,7 @@ async def update_devices_data() -> None:
                         """), {
                             "id_pulsus": device["id"],
                             "id_coletor": device["user_first_name"],
-                            "ip": device["ip_address"],
+                            "ip": ip_address,
                             "estado": device["state"]
                         })
                         session.commit()
