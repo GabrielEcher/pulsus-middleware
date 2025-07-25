@@ -95,7 +95,7 @@ async def update_devices_data() -> None:
                         # Verifica se o contato foi há mais de 3 dias
                         last_contact_str = device.get("last_contact_at")
                         ip_address = device.get("ip_address")
-
+                        logger.info(f"Ultimo contato: {last_contact_str}")
                         if last_contact_str:
                             last_contact = parser.isoparse(last_contact_str)
                             if last_contact < datetime.now() - timedelta(days=3):
