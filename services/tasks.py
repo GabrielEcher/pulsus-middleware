@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dateutil import parser
 import os
 from sqlalchemy import text
@@ -49,6 +49,7 @@ async def request_devices_data() -> List[dict]:
                                         ' '.join(coletor.user.first_name.split()[1:]) or
                                         str(coletor.user.last_name or '')
                                     ),
+                                    "last_contact_at": coletor.last_contact_at
                                 })
                             except Exception as e:
                                 logger.error(f"Erro ao montar dados do coletor: {e} | Coletor: {coletor}")
@@ -93,12 +94,11 @@ async def update_devices_data() -> None:
                 for device in devices_data:
                     try:
                         # Verifica se o contato foi há mais de 3 dias
-                        last_contact_str = device.get("last_contact_at")
+                        last_contact_str = device["last_contact_at"]
                         ip_address = device.get("ip_address")
-                        logger.info(f"Ultimo contato: {last_contact_str}")
                         if last_contact_str:
                             last_contact = parser.isoparse(last_contact_str)
-                            if last_contact < datetime.now() - timedelta(days=3):
+                            if last_contact < datetime.now(timezone.utc) - timedelta(days=3):
                                 logger.info(f"Coletor há mais de 3 dias sem sincronização encontrado IP: {ip_address} | Última sincronização {last_contact_str}")
                                 ip_address = None
                         else:
